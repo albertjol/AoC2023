@@ -88,21 +88,16 @@ func partTwo(fileName string) {
 	}
 }
 
-type number struct {
-	digit   string
-	written string
-}
-
-var numbers = []number{
-	{"1", "one"},
-	{"2", "two"},
-	{"3", "three"},
-	{"4", "four"},
-	{"5", "five"},
-	{"6", "six"},
-	{"7", "seven"},
-	{"8", "eight"},
-	{"9", "nine"},
+var numbers = []string{
+	"one",
+	"two",
+	"three",
+	"four",
+	"five",
+	"six",
+	"seven",
+	"eight",
+	"nine",
 }
 
 type posValue struct {
@@ -148,8 +143,8 @@ func getFirstNumber(line string) int {
 	p := make(posValues, 9)
 	for i := 0; i < 9; i++ {
 		p[i].value = i + 1
-		p[i].pos = minP(strings.Index(line, numbers[i].written),
-			strings.Index(line, numbers[i].digit))
+		p[i].pos = minP(strings.Index(line, numbers[i]),
+			strings.Index(line, strconv.Itoa(i+1)))
 	}
 
 	sort.Sort(p)
@@ -167,8 +162,8 @@ func getLastNumber(line string) int {
 	p := make(posValues, 9)
 	for i := 0; i < 9; i++ {
 		p[i].value = i + 1
-		p[i].pos = max(strings.LastIndex(line, numbers[i].written),
-			strings.LastIndex(line, numbers[i].digit))
+		p[i].pos = max(strings.LastIndex(line, numbers[i]),
+			strings.LastIndex(line, strconv.Itoa(i+1)))
 	}
 
 	sort.Sort(sort.Reverse(p))
