@@ -88,11 +88,6 @@ func partTwo(fileName string) {
 	}
 }
 
-type posValue struct {
-	pos   int
-	value int
-}
-
 type number struct {
 	digit   string
 	written string
@@ -110,6 +105,12 @@ var numbers = []number{
 	{"9", "nine"},
 }
 
+type posValue struct {
+	pos   int
+	value int
+}
+
+/*********** Sort Interface ****************/
 type posValues []posValue
 
 func (a posValues) Less(i, j int) bool {
@@ -123,6 +124,8 @@ func (a posValues) Swap(i, j int) {
 func (a posValues) Len() int {
 	return len(a)
 }
+
+/********************************************/
 
 func minP(a, b int) int {
 	if (b == -1) || ((a < b) && (a > -1)) {
