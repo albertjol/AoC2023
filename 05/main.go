@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"regexp"
 	"sort"
@@ -234,13 +235,6 @@ func partTwo(fileName string) {
 	numRegex := regexp.MustCompile(`\d+`)
 	seedsStr := numRegex.FindAllString(scanner.Text(), -1)
 	seedsRanges := stringSliceToInt(&seedsStr)
-	// Ja... Nu seeds vullen...
-	var seeds []int
-	for i := 0; i < len(seedsRanges); i += 2 {
-		for j := seedsRanges[i]; j < seedsRanges[i]+seedsRanges[i+1]; j++ {
-			seeds = append(seeds, j)
-		}
-	}
 
 	scanner.Scan()
 
@@ -252,21 +246,24 @@ func partTwo(fileName string) {
 	temperatureHumidity := getNextMapping(scanner)
 	humidityLocation := getNextMapping(scanner)
 
-	var locations []int
-	for _, seed := range seeds {
-		soil := getNextMap(seed, seedSoilMap)
-		fert := getNextMap(soil, soilFertilizer)
-		water := getNextMap(fert, fertilizerWater)
-		light := getNextMap(water, waterLight)
-		temp := getNextMap(light, lightTemperature)
-		hum := getNextMap(temp, temperatureHumidity)
-		location := getNextMap(hum, humidityLocation)
-		locations = append(locations, location)
+	minLocation := math.MaxInt
+
+	for i := 0; i < len(seedsRanges); i += 2 {
+		for j := seedsRanges[i]; j < seedsRanges[i]+seedsRanges[i+1]; j++ {
+			soil := getNextMap(j, seedSoilMap)
+			fert := getNextMap(soil, soilFertilizer)
+			water := getNextMap(fert, fertilizerWater)
+			light := getNextMap(water, waterLight)
+			temp := getNextMap(light, lightTemperature)
+			hum := getNextMap(temp, temperatureHumidity)
+			location := getNextMap(hum, humidityLocation)
+			if location < minLocation {
+				minLocation = location
+			}
+		}
 	}
 
-	sort.Ints(locations)
-
-	fmt.Println(locations[0])
+	fmt.Println(minLocation)
 
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
