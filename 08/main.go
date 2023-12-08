@@ -70,10 +70,11 @@ func partOne(fileName string) {
 		match := routeRegex.FindStringSubmatch(scanner.Text())
 		curCrossing := &crossing{match[2], match[3], nil, nil}
 		routeMap[match[1]] = curCrossing
-		if (curPos) == nil {
+		if match[1] == "AAA" {
 			curPos = curCrossing
+		} else if match[1] == "ZZZ" {
+			endPos = curCrossing
 		}
-		endPos = curCrossing
 	}
 
 	for key := range routeMap {
