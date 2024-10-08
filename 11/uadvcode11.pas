@@ -68,6 +68,8 @@ begin
   totalDistance := calcTotalDistances(universe);
 
   ed_Answer.Text := IntToStr(totalDistance);
+  FreeAndNil(universe.Map);
+  FreeAndNil(universe.Galaxies);
   FreeAndNil(lines);
 end;
 
