@@ -6,6 +6,7 @@ object FrmAdvCode: TFrmAdvCode
   Caption = 'Advent of code'
   ClientHeight = 136
   ClientWidth = 526
+  LCLVersion = '3.6.0.0'
   object ed_Filename: TFileNameEdit
     Left = 136
     Height = 23
