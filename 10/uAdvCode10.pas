@@ -1,6 +1,6 @@
 unit uAdvCode10;
 
-{$mode objfpc}{$H+}
+{$mode delphi}{$H+}
 {$ModeSwitch advancedrecords}
 
 interface
@@ -40,31 +40,38 @@ type
   );
 
   { TStateMap }
-  TStateList = specialize TList<TState>;
-  TStateMap = class(specialize TObjectList<TStateList>)
+  TStateMap = class(TObjectList<TList<TState>>)
     function IsFilled(): Boolean;
+    function At(point: TPoint): TState;
+    procedure Print();
   end;
+
+  TMap = TList<TList<Char>>;
 
   { TFrmAdvCode }
 
   TFrmAdvCode = class(TForm)
     btn_Start: TButton;
-    ed_Answer: TEdit;
+    ed_Answer1: TEdit;
+    ed_Answer2: TEdit;
     ed_Filename: TFileNameEdit;
+    lbl_Answer2: TLabel;
     lbl_Filename: TLabel;
-    lbl_Answer: TLabel;
+    lbl_Answer1: TLabel;
 
     procedure btn_StartClick(Sender: TObject);
-    function findStartPoint(map: TStringList): TPoint;
-    function findExits(point: TPoint; map: TStringList) : T2Points;
-    function getChar(point: TPoint; map: TStringList): Char;
-    procedure part1(map: TStringList);
-    procedure part2(map: TStringList);
+    function findStartPoint(map: TMap): TPoint;
+    function findExits(point: TPoint; map: TMap) : T2Points;
+    procedure FormCreate(Sender: TObject);
+    function getChar(point: TPoint; map: TMap): Char;
+    procedure part1(map: TMap);
+    procedure part2(map: TMap);
 
   private
-    FLoop: specialize TList<TPoint>;
-    function DetermineInsideState(const nextPoint: TPoint; const point: TPoint;
-      const map: TStringList): TState;
+    FLoop: TList<TPoint>;
+    function DetermineInsideState(const currentState: TState; const nextPoint: TPoint;
+      const point: TPoint; const map: TMap; const stateMap: TStateMap): TState;
+    function CreateMapFromStringList(const map: TStringList): TMap;
   public
 
   end;
@@ -73,6 +80,10 @@ var
   FrmAdvCode: TFrmAdvCode;
 
 implementation
+
+uses
+  FileUtil
+  ;
 
 {$R *.lfm}
 
@@ -118,12 +129,12 @@ end;
 
 function TStateMap.IsFilled(): Boolean;
 var
-  i: Integer;
+  i, j: Integer;
 begin
   Result := True;
-  for (i := 0 to self.Count - 1) do
+  for i := 0 to self.Count - 1 do
   begin
-    for (j := 0 to self[i].Count - 1) do
+    for j := 0 to self[i].Count - 1 do
     begin
       if (Self[i][j] = unknown) then
       begin
@@ -134,42 +145,95 @@ begin
   end;
 end;
 
+function TStateMap.At(point: TPoint): TState;
+begin
+  Result := outside;
+  if ((point.Y < 0) or (point.X < 0) or
+      (point.Y >= Count - 1) or (point.X >= self[0].Count)) then
+    exit;
+
+  Result := self[point.Y][Point.X];
+end;
+
+procedure TStateMap.Print();
+var
+  row: TList<TState>;
+  state: TState;
+begin
+  for row in Self do
+  begin
+    for state in row do
+    begin
+      case state of
+        followingLoop:
+          Write('#');
+        crossingIn:
+          Write('E');
+        crossingOut:
+          Write('L');
+        inside:
+          Write('I');
+        outside:
+          Write('O');
+      end;
+    end;
+    WriteLn();
+  end;
+end;
+
 { TFrmAdvCode }
 
 procedure TFrmAdvCode.btn_StartClick(Sender: TObject);
 var
   lines: TStringList;
+  map: TMap;
+  row: TList<Char>;
 begin
+  with TStringList.Create() do
+  begin
+    try
+      Add(ed_Filename.Text);
+      SaveToFile('settings.txt');
+    finally
+      Free();
+    end;
+  end;
   lines := TStringList.Create();
   lines.LoadFromFile(ed_Filename.Text);
+  map := CreateMapFromStringList(lines);
 
-  part1(lines);
-  part2(lines);
+  part1(map);
+  part2(map);
 
+  for row in map do
+  begin
+    row.Free();
+  end;
+  FreeAndNil(map);
   FreeAndNil(lines);
 end;
 
-function TFrmAdvCode.findStartPoint(map: TStringList): TPoint;
+function TFrmAdvCode.findStartPoint(map: TMap): TPoint;
 var
   i,j: Integer;
 begin
   for i := 0 to map.Count - 1 do
   begin
-    for j := 1 to map[0].Length do // Strings are 1-based
+    for j := 0 to map[i].Count - 1 do
     begin
       if map[i][j] = 'S' then
       begin
-        Result.X := j - 1; // Strings are 1-based...
+        Result.X := j;
         Result.Y := i;
       end;
     end;
   end;
 end;
 
-function TFrmAdvCode.findExits(point: TPoint; map: TStringList): T2Points;
+function TFrmAdvCode.findExits(point: TPoint; map: TMap): T2Points;
 var
   pipe: Char;
-  points: specialize TList<TPoint>;
+  points: TList<TPoint>;
 begin
   pipe := getChar(point, map);
   case pipe of
@@ -205,11 +269,11 @@ begin
       end;
     'S':
       begin
-        points := specialize TList<TPoint>.Create();
-        if((point.Y > 0)                   and findExits(point.N(), map).contains(point)) then points.Add(point.N());
-        if((point.X < map[point.Y].Length) and findExits(point.E(), map).contains(point)) then points.Add(point.E());
-        if((point.Y < map.Count - 1)       and findExits(point.S(), map).contains(point)) then points.Add(point.S());
-        if((point.X > 0)                   and findExits(point.W(), map).contains(point)) then points.Add(point.W());
+        points := TList<TPoint>.Create();
+        if((point.Y > 0)                      and findExits(point.N(), map).contains(point)) then points.Add(point.N());
+        if((point.X < map[point.Y].Count - 1) and findExits(point.E(), map).contains(point)) then points.Add(point.E());
+        if((point.Y < map.Count - 1)          and findExits(point.S(), map).contains(point)) then points.Add(point.S());
+        if((point.X > 0)                      and findExits(point.W(), map).contains(point)) then points.Add(point.W());
         Result.a := points[0];
         Result.b := points[1];
         FreeAndNil(points);
@@ -217,12 +281,31 @@ begin
   end;
 end;
 
-function TFrmAdvCode.getChar(point: TPoint; map: TStringList): Char;
+procedure TFrmAdvCode.FormCreate(Sender: TObject);
 begin
-  Result := map[point.Y][point.X + 1];
+  if FileIsInPath('settings.txt', '.') then
+  begin
+    with TStringList.Create() do
+    begin
+      try
+        LoadFromFile('settings.txt');
+        if(Count > 0) then
+        begin
+          ed_Filename.Text := Strings[0];
+        end;
+      finally
+        Free();
+      end;
+    end;
+  end;
 end;
 
-procedure TFrmAdvCode.part1(map: TStringList);
+function TFrmAdvCode.getChar(point: TPoint; map: TMap): Char;
+begin
+  Result := map[point.Y][point.X];
+end;
+
+procedure TFrmAdvCode.part1(map: TMap);
 var
   startPoint : TPoint;
   count: Integer = 0;
@@ -231,9 +314,10 @@ var
   exitsTmp: T2Points;
 begin
   startPoint := findStartPoint(map);
-
+  FLoop := TList<TPoint>.Create();
   // Save points in FLoop for part 2
   FLoop.Add(startPoint);
+//  WriteLn('s.X: ', startPoint.X, ' s.Y: ', startPoint.Y);
 
   prevPoints.a := startPoint;
   prevPoints.b := startPoint;
@@ -271,12 +355,13 @@ begin
     FLoop.Add(exits.a);
     // Last one is probably doubled
     FLoop.Add(exits.b);
+//    WriteLn('a.X: ', exits.a.X, ' a.Y: ', exits.a.Y);
+//    WriteLn('b.X: ', exits.b.X, ' b.Y: ', exits.b.Y);
   end;
-
-  ed_Answer.Text := IntToStr(count + 1);
+  ed_Answer1.Text := IntToStr(count + 1);
 end;
 
-procedure TFrmAdvCode.part2(map: TStringList);
+procedure TFrmAdvCode.part2(map: TMap);
 var
   i,j: Integer;
   state: TState;
@@ -288,8 +373,8 @@ begin
   stateMap := TStateMap.Create();
   for i := 0 to map.Count - 1 do
   begin
-    stateMap.Add(specialize TList<TState>.Create());
-    for j := 0 to map[i].Length - 1 do
+    stateMap.Add(TList<TState>.Create());
+    for j := 0 to map[i].Count - 1 do
     begin
       stateMap[i].Add(unknown);
     end;
@@ -299,76 +384,158 @@ begin
     for i := 0 to map.Count - 1 do
     begin
       state := outside;
-      for j := 1 to map[i].Length do
+      for j := 0 to map[i].Count - 1 do
       begin
-        if(stateMap[i][j-1] <> unknown) then
+        if(stateMap[i][j] <> unknown) then
         begin
-          state := stateMap[i][j-1];
+          state := stateMap[i][j];
           continue;
         end;
 
-        point.X:=j;
-        point.Y:=i;
+        point.X := j;
+        point.Y := i;
         nextPoint := point.E();
-        state:=DetermineInsideState(nextPoint, point, map);
-        stateMap[i][j-1] := state;
+        state := DetermineInsideState(state, nextPoint, point, map, stateMap);
+        stateMap[i][j] := state;
+      end;
+    end;
+    for j := 0 to map[0].Count - 1 do
+    begin
+      state := outside;
+      for i := 0 to map.Count - 1 do
+      begin
+        if(stateMap[i][j] <> unknown) then
+        begin
+          state := stateMap[i][j];
+          continue;
+        end;
+
+        point.X := j;
+        point.Y := i;
+        nextPoint := point.S();
+        state := DetermineInsideState(state, nextPoint, point, map, stateMap);
+        stateMap[i][j] := state;
+      end;
+    end;
+
+    for i := map.Count - 1 downto 0 do
+    begin
+      state := outside;
+      for j := map[i].Count - 1 downto 0 do
+      begin
+        if(stateMap[i][j] <> unknown) then
+        begin
+          state := stateMap[i][j];
+          continue;
+        end;
+
+        point.X := j;
+        point.Y := i;
+        nextPoint := point.W();
+        state := DetermineInsideState(state, nextPoint, point, map, stateMap);
+        stateMap[i][j] := state;
+      end;
+    end;
+    for j := map[0].Count - 1 downto 0 do
+    begin
+      state := outside;
+      for i := map.Count - 1 downto 0 do
+      begin
+        if(stateMap[i][j] <> unknown) then
+        begin
+          state := stateMap[i][j];
+          continue;
+        end;
+
+        point.X := j;
+        point.Y := i;
+        nextPoint := point.N();
+        state := DetermineInsideState(state, nextPoint, point, map, stateMap);
+        stateMap[i][j] := state;
       end;
     end;
   end;
+  for i := 0 to stateMap.Count - 1 do
+  begin
+    for j := 0 to stateMap[i].Count - 1 do
+    begin
+      if(stateMap[i][j] = inside) then
+        Inc(count);
+    end;
+  end;
+  stateMap.Print();
+  ed_Answer2.Text := IntToStr(count);
 end;
 
-function TFrmAdvCode.DetermineInsideState(const nextPoint: TPoint;
-  const point: TPoint; const map: TStringList): TState;
-var
-  state: TState;
+
+function TFrmAdvCode.DetermineInsideState(const currentState: TState;
+  const nextPoint: TPoint; const point: TPoint; const map: TMap;
+  const stateMap: TStateMap): TState;
 begin
-  case state of
+  Result := currentState;
+  case currentState of
     outside:
       begin
         if (FLoop.Contains(point)) then
         begin
           if(findExits(point, map).contains(nextPoint)) then
-            state := followingLoop
+            Result := followingLoop
           else
-            state := crossingIn;
+            Result := crossingIn;
         end;
       end;
     followingLoop:
       begin
         if(findExits(point, map).contains(nextPoint)) then
-          state := followingLoop
+          Result := followingLoop
         else
         begin
           // We're going in or out...
-          state := unknown;
+          // We're in if an adjacent pixel is in
+          if     (stateMap.At(nextPoint.N()) = inside) then
+            Result := crossingIn
+          else if(stateMap.At(nextPoint.N()) = outside) then
+            Result := crossingOut
+          else if(stateMap.At(nextPoint.E()) = inside) then
+            Result := crossingIn
+          else if(stateMap.At(nextPoint.E()) = outside) then
+            Result := crossingOut
+          else if(stateMap.At(nextPoint.S()) = inside) then
+            Result := crossingIn
+          else if(stateMap.At(nextPoint.S()) = outside) then
+            Result := crossingOut
+          else if(stateMap.At(nextPoint.W()) = inside) then
+            Result := crossingIn
+          else if(stateMap.At(nextPoint.W()) = outside) then
+            Result := crossingOut
+          else
+            Result := unknown;
         end;
       end;
     unknown:
       begin
         // state does never change...
-        // We can go out this time....
-        break;
       end;
     crossingIn:
       begin
       if (not FLoop.Contains(point)) then
       begin
-        state := inside;
+        Result := inside;
       end
       else
         if(findExits(point, map).contains(nextPoint)) then
-          state := followingLoop
+          Result := followingLoop
         else
-          state := crossingOut;
+          Result := crossingOut;
       end;
     inside:
       begin
         if (FLoop.Contains(point)) then
         begin
           if(findExits(point, map).contains(nextPoint)) then
-            state := followingLoop
+            Result := followingLoop
           else
-            state := crossingOut;
+            Result := crossingOut;
         end;
       end;
     crossingOut:
@@ -376,17 +543,33 @@ begin
       if (FLoop.Contains(point)) then
       begin
         if(findExits(point, map).contains(nextPoint)) then
-          state := followingLoop
+          Result := followingLoop
         else
-          state := crossingIn ;
+          Result := crossingIn ;
       end
       else
       begin
-        state := outside;
+        Result := outside;
       end;
     end;
   end;
-  Result:=state;
+end;
+
+function TFrmAdvCode.CreateMapFromStringList(const map: TStringList): TMap;
+var
+  i, j: Integer;
+  k: Char;
+begin
+  Result := TMap.Create();
+  for i := 0 to map.Count - 1 do
+  begin
+    Result.Add(TList<Char>.Create());
+    for j := 1 to map[i].Length do
+    begin
+      k := map[i][j];
+      Result[i].Add(k);
+    end;
+  end;
 end;
 
 end.
